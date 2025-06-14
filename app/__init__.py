@@ -14,17 +14,16 @@ def create_app(config_class=Config):
     app = Flask(__name__)
     app.config.from_object(config_class)
     
-    CORS(app)
+    CORS(app, supports_credentials=True)
     
     db.init_app(app)
     bcrypt.init_app(app)
     login_manager.init_app(app)
 
-    # Import blueprints here to avoid circular imports
     from app.auth.routes import auth_bp
     from app.main.routes import main_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(main_bp)
 
-    return app  # Make sure this is on its own line!
+    return app
