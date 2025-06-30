@@ -1,7 +1,15 @@
+from datetime import timedelta
 from flask import Blueprint, request, jsonify
+from flask_jwt_extended import (
+    create_access_token,
+    jwt_required,
+    get_jwt_identity,
+    set_access_cookies,
+    unset_jwt_cookies
+)
 from app.auth.models import User
 from app import db, bcrypt
-from flask_login import login_user, logout_user, current_user
+from config import Config
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -14,15 +22,12 @@ def register():
     if not all(field in data for field in required_fields):
         return jsonify({'message': 'All fields are required'}), 400
     
-    # Validate password match
     if data['password'] != data['confirm_password']:
         return jsonify({'message': 'Passwords do not match'}), 400
     
-    # Validate email uniqueness
     if User.query.filter_by(email=data['email']).first():
         return jsonify({'message': 'Email already registered'}), 400
     
-    # Create user
     user = User(
         first_name=data['first_name'],
         last_name=data['last_name'],
@@ -37,8 +42,6 @@ def register():
         'message': 'Registration successful',
         'user': {
             'id': user.id,
-            'first_name': user.first_name,
-            'last_name': user.last_name,
             'email': user.email
         }
     }), 201
@@ -52,30 +55,42 @@ def login():
     user = User.query.filter_by(email=email).first()
 
     if user and user.verify_password(password):
-        login_user(user)
-        return jsonify({
+        access_token = create_access_token(
+            identity=user.id,
+            expires_delta=Config.JWT_ACCESS_TOKEN_EXPIRES
+        )
+        
+        response = jsonify({
             'message': 'Login successful',
             'user': {
                 'id': user.id,
-                'first_name': user.first_name,
-                'last_name': user.last_name,
                 'email': user.email
             }
-        }), 200
+        })
+        
+        set_access_cookies(response, access_token)
+        return response, 200
+    
     return jsonify({'message': 'Invalid email or password'}), 401
 
 @auth_bp.route('/logout', methods=['POST'])
 def logout():
-    logout_user()
-    return jsonify({'message': 'Logout successful'}), 200
+    response = jsonify({'message': 'Logout successful'})
+    unset_jwt_cookies(response)
+    return response, 200
 
 @auth_bp.route('/user', methods=['GET'])
+@jwt_required()
 def get_user():
-    if current_user.is_authenticated:
-        return jsonify({
-            'id': current_user.id,
-            'first_name': current_user.first_name,
-            'last_name': current_user.last_name,
-            'email': current_user.email
-        }), 200
-    return jsonify({'message': 'Not logged in'}), 401
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
+    
+    if not user:
+        return jsonify({'message': 'User not found'}), 404
+        
+    return jsonify({
+        'id': user.id,
+        'first_name': user.first_name,
+        'last_name': user.last_name,
+        'email': user.email
+    }), 200

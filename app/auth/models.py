@@ -1,16 +1,12 @@
-from app import db, login_manager, bcrypt
-from flask_login import UserMixin
+from app import db, bcrypt
+from flask_jwt_extended import create_access_token
 
-@login_manager.user_loader
-def load_user(user_id):
-    return User.query.get(int(user_id))
-
-class User(db.Model, UserMixin):
+class User(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     first_name = db.Column(db.String(50), nullable=False)
     last_name = db.Column(db.String(50), nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
-    password_hash = db.Column(db.String(60), nullable=False)
+    password_hash = db.Column(db.String(128), nullable=False)
 
     @property
     def password(self):
@@ -22,3 +18,6 @@ class User(db.Model, UserMixin):
 
     def verify_password(self, password):
         return bcrypt.check_password_hash(self.password_hash, password)
+
+    def get_token(self, expires_delta=None):
+        return create_access_token(identity=self.id, expires_delta=expires_delta)

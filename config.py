@@ -1,4 +1,5 @@
 import os
+from datetime import timedelta
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -6,24 +7,22 @@ load_dotenv()
 class Config:
     # Security
     SECRET_KEY = os.getenv('SECRET_KEY', os.urandom(32).hex())
-    SESSION_COOKIE_SECURE = True
-    SESSION_COOKIE_HTTPONLY = True
-    SESSION_COOKIE_SAMESITE = 'Lax'
     
-    # Database (auto-handles Railway's PostgreSQL)
+    # JWT Configuration
+    JWT_SECRET_KEY = os.getenv('JWT_SECRET_KEY', os.urandom(32).hex())
+    JWT_ACCESS_TOKEN_EXPIRES = timedelta(days=7)  # 1 week expiration
+    JWT_TOKEN_LOCATION = ['cookies', 'headers']
+    JWT_COOKIE_SECURE = True
+    JWT_COOKIE_HTTPONLY = True
+    JWT_COOKIE_SAMESITE = 'Lax'
+    JWT_CSRF_IN_COOKIES = False  # Disable if not using CSRF protection
+    
+    # Database
     SQLALCHEMY_DATABASE_URI = (
         os.environ.get('DATABASE_URL', 'sqlite:///site.db')
-        .replace('postgres://', 'postgresql://', 1)  # Fix for Heroku/Railway
+        .replace('postgres://', 'postgresql://', 1)
     )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-    SQLALCHEMY_ENGINE_OPTIONS = {
-        'pool_pre_ping': True,
-        'pool_recycle': 300,
-    }
     
     # CORS
     CORS_ORIGINS = os.getenv('ALLOWED_ORIGINS', 'http://localhost:3000').split(',')
-    
-    # Flask-Login
-    REMEMBER_COOKIE_SECURE = True
-    REMEMBER_COOKIE_HTTPONLY = True
